@@ -1,0 +1,19 @@
+# general
+is_debug: true
+
+# server
+server:
+  write_timeout: 15
+  reed_timeout: 15
+  listen:
+    type: tcp
+    bind_ip: 0.0.0.0
+    port: 3000
+database:
+  mysql:
+    host: localhost
+    port: 3306
+    dbname: auth
+    username: root
+    password:
+  
