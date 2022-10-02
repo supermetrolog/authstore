@@ -46,7 +46,7 @@ func (m *Middleware) AdapterMiddleware(next handler.Handle) httprouter.Handle {
 }
 
 type UserService interface {
-	FindByAccessToken(ctx context.Context, token string) (*user.User, error)
+	FindByActiveAccessToken(ctx context.Context, token string) (*user.User, error)
 }
 
 func (m *Middleware) AuthMiddleware(next handler.Handle, userService UserService) handler.Handle {
@@ -58,19 +58,16 @@ func (m *Middleware) AuthMiddleware(next handler.Handle, userService UserService
 			err := apperror.NewAuthError("The request does not contain an authorization token")
 			return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusUnauthorized)
 		}
-		var (
-			username                  = "username"
-			id            user.UserID = 36
-			email                     = "fck@gmai.com"
-			password_hash             = "sdawdawd"
-		)
-		u := &user.User{
-			ID:           &id,
-			Email:        &email,
-			Username:     &username,
-			PasswordHash: &password_hash,
+		u, err := userService.FindByActiveAccessToken(context.Background(), token)
+		if err != nil {
+			err := apperror.NewAuthError("Server error")
+			return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 		}
-		httpCtx.SetUser(u)
+		if u == nil {
+			err := apperror.NewAuthError("Invalid access token")
+			return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusUnauthorized)
+		}
+		httpCtx.SetUser(u, token)
 		return next(httpCtx)
 	}
 

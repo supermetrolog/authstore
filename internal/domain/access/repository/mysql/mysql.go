@@ -37,7 +37,8 @@ func (r *repository) Create(ctx context.Context, dto *access.CreateAccessDTO) (a
 			is_desktop, 
 			is_bot, 
 			url, 
-			full_user_agent
+			full_user_agent,
+			status
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	stmt, err := r.client.PrepareContext(ctx, sql)
@@ -62,6 +63,7 @@ func (r *repository) Create(ctx context.Context, dto *access.CreateAccessDTO) (a
 		dto.UserAgent.IsBot,
 		dto.UserAgent.URL,
 		dto.UserAgent.FullUserAgent,
+		access.StatusActive,
 	)
 
 	if err != nil {
@@ -103,6 +105,7 @@ func (r *repository) fetch(ctx context.Context, query string, args ...any) ([]*a
 			&UserAgent.IsBot,
 			&UserAgent.URL,
 			&UserAgent.FullUserAgent,
+			&item.Status,
 		)
 
 		item.Token = &Token
@@ -113,7 +116,7 @@ func (r *repository) fetch(ctx context.Context, query string, args ...any) ([]*a
 }
 func (r repository) FindByAccessToken(ctx context.Context, token string) (*access.Access, error) {
 	sql := `SELECT
-		id, user_id, created_at, token, expire, browser, browser_version, os, os_version, device, is_mobile, is_tablet, is_desktop, is_bot, url, full_user_agent
+		id, user_id, created_at, token, expire, browser, browser_version, os, os_version, device, is_mobile, is_tablet, is_desktop, is_bot, url, full_user_agent, status
 		FROM access
 		WHERE token = ? LIMIT 1`
 	accesses, err := r.fetch(ctx, sql, token)
@@ -124,4 +127,30 @@ func (r repository) FindByAccessToken(ctx context.Context, token string) (*acces
 		return accesses[0], nil
 	}
 	return nil, nil
+}
+
+func (r repository) Delete(ctx context.Context, id access.AccessID) error {
+	sql := `DELETE FROM access WHERE id = ?`
+
+	stmt, err := r.client.PrepareContext(ctx, sql)
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, id)
+	return err
+}
+
+func (r repository) DisableAccess(ctx context.Context, id access.AccessID) error {
+	sql := "UPDATE access SET status = ? WHERE id = ?"
+
+	stmt, err := r.client.PrepareContext(ctx, sql)
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, access.StatusInactive, id)
+	return err
 }

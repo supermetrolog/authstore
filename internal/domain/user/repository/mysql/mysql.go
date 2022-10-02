@@ -120,8 +120,5 @@ func (r *repository) Update(ctx context.Context, dto *user.UpdateUserDTO) error 
 	}
 	defer stmt.Close()
 	_, err = stmt.ExecContext(ctx, dto.Email, dto.Username, dto.Password, dto.ID)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

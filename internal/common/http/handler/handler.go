@@ -31,6 +31,7 @@ type HttpContext struct {
 }
 type UserContext struct {
 	user   *user.User
+	token  string
 	isAuth bool
 }
 
@@ -38,11 +39,16 @@ func (u *UserContext) GetUser() *user.User {
 	return u.user
 }
 
+func (u *UserContext) GetToken() string {
+	return u.token
+}
+
 // once
-func (u *UserContext) SetUser(model *user.User) {
-	if u.user != nil || model == nil {
+func (u *UserContext) SetUser(model *user.User, token string) {
+	if u.user != nil || model == nil || token == "" {
 		return
 	}
+	u.token = token
 	u.user = model
 	u.isAuth = true
 }

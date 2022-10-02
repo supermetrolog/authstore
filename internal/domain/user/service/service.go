@@ -8,6 +8,7 @@ import (
 	"authstore/pkg/security"
 	"authstore/pkg/validator"
 	"context"
+	"fmt"
 )
 
 type Repository interface {
@@ -20,6 +21,8 @@ type Repository interface {
 type AccessRepository interface {
 	Create(context.Context, *access.CreateAccessDTO) (access.AccessID, error)
 	FindByAccessToken(context.Context, string) (*access.Access, error)
+	Delete(ctx context.Context, id access.AccessID) error
+	DisableAccess(ctx context.Context, id access.AccessID) error
 }
 type Service struct {
 	logger           loggerinterface.Logger //fucking logger
@@ -101,7 +104,23 @@ func (s *Service) FindByAccessToken(ctx context.Context, token string) (*user.Us
 	}
 	return user, nil
 }
-
+func (s *Service) FindByActiveAccessToken(ctx context.Context, token string) (*user.User, error) {
+	access, err := s.accessRepository.FindByAccessToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if access == nil {
+		return nil, nil
+	}
+	if access.IsInactive() {
+		return nil, nil
+	}
+	user, err := s.repository.FindById(ctx, user.UserID(*access.UserID))
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
 func (s *Service) Login(ctx context.Context, dto *user.LoginUserDTO, useragent *access.UserAgent) (*access.Token, error) {
 	errs := validator.New().Validate(dto)
 	if errs != nil {
@@ -137,4 +156,15 @@ func (s *Service) Login(ctx context.Context, dto *user.LoginUserDTO, useragent *
 		return nil, err
 	}
 	return Token, nil
+}
+
+func (s *Service) Logout(ctx context.Context, token string) error {
+	access, err := s.accessRepository.FindByAccessToken(ctx, token)
+	if err != nil {
+		return err
+	}
+	if access == nil {
+		return fmt.Errorf("access with token \"%s\" not found", token)
+	}
+	return s.accessRepository.DisableAccess(ctx, *access.ID)
 }

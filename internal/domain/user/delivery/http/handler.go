@@ -17,19 +17,22 @@ import (
 )
 
 const (
-	usersURL = "/users"
-	userURL  = "/users/:id"
-	loginURL = "/login"
+	usersURL  = "/users"
+	userURL   = "/users/:id"
+	loginURL  = "/login"
+	logoutURL = "/logout"
 )
 
 type Service interface {
 	FindById(context.Context, user.UserID) (*user.User, error)
 	FindByUsername(context.Context, string) (*user.User, error)
 	FindByAccessToken(context.Context, string) (*user.User, error)
+	FindByActiveAccessToken(context.Context, string) (*user.User, error)
 	FindAll(context.Context) ([]*user.User, error)
 	Create(context.Context, *user.CreateUserDTO) (user.UserID, error)
 	Update(context.Context, *user.UpdateUserDTO) error
 	Login(context.Context, *user.LoginUserDTO, *access.UserAgent) (*access.Token, error)
+	Logout(ctx context.Context, token string) error
 }
 
 type handler struct {
@@ -54,6 +57,7 @@ func (h *handler) Register(router *httprouter.Router) {
 	router.POST(usersURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.CreateUser)))
 	router.PATCH(userURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.UpdateUser)))
 	router.POST(loginURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.LoginUser)))
+	router.GET(logoutURL, md.AdapterMiddleware(md.DefaultMiddlewares(md.AuthMiddleware(h.LogoutUser, h.service))))
 }
 
 func (h *handler) GetUserList(hc *handlerContext.HandleContext) error {
@@ -170,5 +174,24 @@ func (h *handler) LoginUser(hc *handlerContext.HandleContext) error {
 	}
 	hc.W.WriteHeader(http.StatusOK)
 	hc.W.Write(tokenBytes)
+	return nil
+}
+
+func (h *handler) LogoutUser(hc *handlerContext.HandleContext) error {
+	h.logger.Info("LOGOUT USER HANDLER")
+	noAuthErr := apperror.NewAuthError("user not auth")
+	if hc.IsGuest() {
+		return apperror.NewHandlerErrorWithMessage(noAuthErr, noAuthErr.Error(), http.StatusUnauthorized)
+	}
+	u := hc.GetUser()
+	if u == nil {
+		return apperror.NewHandlerErrorWithMessage(noAuthErr, noAuthErr.Error(), http.StatusUnauthorized)
+	}
+	err := h.service.Logout(context.Background(), hc.GetToken())
+
+	if err != nil {
+		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
+	}
+	hc.W.WriteHeader(http.StatusNoContent)
 	return nil
 }
