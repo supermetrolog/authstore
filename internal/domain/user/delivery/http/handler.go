@@ -38,7 +38,6 @@ type Service interface {
 type handler struct {
 	logger  loggerinterface.Logger
 	service Service
-	test    string
 }
 
 func NewHandler(logger loggerinterface.Logger, service Service) *handler {
@@ -51,7 +50,6 @@ func NewHandler(logger loggerinterface.Logger, service Service) *handler {
 func (h *handler) Register(router *httprouter.Router) {
 	md := middleware.NewMiddleware(h.logger)
 
-	// router.GET(usersURL, md.AdapterMiddleware(md.AuthMiddleware(md.DefaultMiddlewares(h.GetUserList), h.service)))
 	router.GET(usersURL, md.AdapterMiddleware(md.DefaultMiddlewares(md.AuthMiddleware(h.GetUserList, h.service))))
 	router.GET(userURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.GetUserByID)))
 	router.POST(usersURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.CreateUser)))
@@ -68,6 +66,7 @@ func (h *handler) GetUserList(hc *handlerContext.HandleContext) error {
 	}
 	usersJSON, err := json.Marshal(users)
 	if err != nil {
+		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
 	hc.W.Write(usersJSON)
 	return nil
@@ -80,7 +79,7 @@ func (h *handler) GetUserByID(hc *handlerContext.HandleContext) error {
 	}
 	user, err := h.service.FindById(context.Background(), user.UserID(id))
 	if err != nil {
-		return apperror.NewHandlerError(err, http.StatusInternalServerError)
+		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
 
 	if user == nil {
@@ -89,7 +88,7 @@ func (h *handler) GetUserByID(hc *handlerContext.HandleContext) error {
 
 	userJSON, err := json.Marshal(user)
 	if err != nil {
-		return apperror.NewHandlerError(err, http.StatusInternalServerError)
+		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
 	hc.W.Write(userJSON)
 	return nil
@@ -115,7 +114,7 @@ func (h *handler) UpdateUser(hc *handlerContext.HandleContext) error {
 	}
 	userModel, err := h.service.FindById(context.Background(), user.UserID(id))
 	if err != nil {
-		return apperror.NewHandlerError(err, http.StatusInternalServerError)
+		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
 
 	if userModel == nil {
@@ -132,7 +131,7 @@ func (h *handler) UpdateUser(hc *handlerContext.HandleContext) error {
 	}
 	err = h.service.Update(context.Background(), &UpdateUserDTO)
 	if err != nil {
-		return apperror.NewHandlerError(err, http.StatusInternalServerError)
+		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
 	hc.W.WriteHeader(http.StatusNoContent)
 	return nil

@@ -154,3 +154,15 @@ func (r repository) DisableAccess(ctx context.Context, id access.AccessID) error
 	_, err = stmt.ExecContext(ctx, access.StatusInactive, id)
 	return err
 }
+
+func (r *repository) FindAll(ctx context.Context) ([]*access.Access, error) {
+	sql := `SELECT
+		id, user_id, created_at, token, expire, browser, browser_version, os, os_version, device, is_mobile, is_tablet, is_desktop, is_bot, url, full_user_agent, status
+		FROM access`
+	accesses, err := r.fetch(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+
+	return accesses, nil
+}

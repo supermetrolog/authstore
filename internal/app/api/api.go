@@ -2,7 +2,9 @@ package api
 
 import (
 	"authstore/internal/config"
+	accesshttp "authstore/internal/domain/access/delivery/http"
 	accessmysqlrepo "authstore/internal/domain/access/repository/mysql"
+	accessService "authstore/internal/domain/access/service"
 	userhttp "authstore/internal/domain/user/delivery/http"
 	usermysqlrepo "authstore/internal/domain/user/repository/mysql"
 	userservice "authstore/internal/domain/user/service"
@@ -48,17 +50,28 @@ func Run() {
 	if err != nil {
 		logger.Fatalf("mysql client error %v", err)
 	}
-
+	userService := userservice.NewService(
+		logger,
+		usermysqlrepo.NewRepository(logger, client),
+		accessmysqlrepo.NewRepository(logger, client),
+	)
 	userHandler := userhttp.NewHandler(
 		logger,
-		userservice.NewService(
+		userService,
+	)
+
+	accessHandler := accesshttp.NewHandler(
+		logger,
+		accessService.NewService(
 			logger,
-			usermysqlrepo.NewRepository(logger, client),
 			accessmysqlrepo.NewRepository(logger, client),
 		),
+		userService,
 	)
+
 	registerHandlers(router,
 		userHandler,
+		accessHandler,
 	)
 
 	logger.Info("run server")

@@ -10,7 +10,7 @@ const (
 )
 
 type Token struct {
-	Token  *string `json:"token"`
+	Token  *string `json:"-"`
 	Expire *uint64 `json:"expire"`
 }
 
