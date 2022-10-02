@@ -2,9 +2,11 @@ package http
 
 import (
 	"authstore/internal/apperror"
+	handlerContext "authstore/internal/common/http/handler"
 	"authstore/internal/common/http/middleware"
-	"authstore/internal/domain/user/entity/user"
-	"authstore/pkg/logging"
+	"authstore/internal/common/loggerinterface"
+	access "authstore/internal/domain/access/entity"
+	user "authstore/internal/domain/user/entity"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -20,12 +22,23 @@ const (
 	loginURL = "/login"
 )
 
-type handler struct {
-	logger  *logging.Logger
-	service user.Service
+type Service interface {
+	FindById(context.Context, user.UserID) (*user.User, error)
+	FindByUsername(context.Context, string) (*user.User, error)
+	FindByAccessToken(context.Context, string) (*user.User, error)
+	FindAll(context.Context) ([]*user.User, error)
+	Create(context.Context, *user.CreateUserDTO) (user.UserID, error)
+	Update(context.Context, *user.UpdateUserDTO) error
+	Login(context.Context, *user.LoginUserDTO, *access.UserAgent) (*access.Token, error)
 }
 
-func NewHandler(logger *logging.Logger, service user.Service) *handler {
+type handler struct {
+	logger  loggerinterface.Logger
+	service Service
+	test    string
+}
+
+func NewHandler(logger loggerinterface.Logger, service Service) *handler {
 	return &handler{
 		logger:  logger,
 		service: service,
@@ -33,16 +46,18 @@ func NewHandler(logger *logging.Logger, service user.Service) *handler {
 }
 
 func (h *handler) Register(router *httprouter.Router) {
-	md := middleware.NewMiddleware(*h.logger)
+	md := middleware.NewMiddleware(h.logger)
 
-	router.GET(usersURL, md.DefaultMiddlewares(h.GetUserList))
-	router.GET(userURL, md.DefaultMiddlewares(h.GetUserByID))
-	router.POST(usersURL, md.DefaultMiddlewares(h.CreateUser))
-	router.PATCH(userURL, md.DefaultMiddlewares(h.UpdateUser))
-	router.POST(loginURL, md.DefaultMiddlewares(h.LoginUser))
+	// router.GET(usersURL, md.AdapterMiddleware(md.AuthMiddleware(md.DefaultMiddlewares(h.GetUserList), h.service)))
+	router.GET(usersURL, md.AdapterMiddleware(md.DefaultMiddlewares(md.AuthMiddleware(h.GetUserList, h.service))))
+	router.GET(userURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.GetUserByID)))
+	router.POST(usersURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.CreateUser)))
+	router.PATCH(userURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.UpdateUser)))
+	router.POST(loginURL, md.AdapterMiddleware(md.DefaultMiddlewares(h.LoginUser)))
 }
 
-func (h *handler) GetUserList(w http.ResponseWriter, r *http.Request, params httprouter.Params) error {
+func (h *handler) GetUserList(hc *handlerContext.HandleContext) error {
+	h.logger.Info("UserList USER", hc.GetUser())
 	users, err := h.service.FindAll(context.Background())
 	if err != nil {
 		return apperror.NewHandlerError(err, http.StatusInternalServerError)
@@ -50,11 +65,12 @@ func (h *handler) GetUserList(w http.ResponseWriter, r *http.Request, params htt
 	usersJSON, err := json.Marshal(users)
 	if err != nil {
 	}
-	w.Write(usersJSON)
+	hc.W.Write(usersJSON)
 	return nil
 }
-func (h *handler) GetUserByID(w http.ResponseWriter, r *http.Request, params httprouter.Params) error {
-	id, err := strconv.Atoi(params.ByName("id"))
+func (h *handler) GetUserByID(hc *handlerContext.HandleContext) error {
+	h.logger.Info("ByID USER", hc.GetUser())
+	id, err := strconv.Atoi(hc.P.ByName("id"))
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, "Invalid url param (id)", http.StatusBadRequest)
 	}
@@ -71,12 +87,12 @@ func (h *handler) GetUserByID(w http.ResponseWriter, r *http.Request, params htt
 	if err != nil {
 		return apperror.NewHandlerError(err, http.StatusInternalServerError)
 	}
-	w.Write(userJSON)
+	hc.W.Write(userJSON)
 	return nil
 }
-func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request, params httprouter.Params) error {
+func (h *handler) CreateUser(hc *handlerContext.HandleContext) error {
 	var CreateUserDTO user.CreateUserDTO
-	err := json.NewDecoder(r.Body).Decode(&CreateUserDTO)
+	err := json.NewDecoder(hc.R.Body).Decode(&CreateUserDTO)
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusBadRequest)
 	}
@@ -84,12 +100,12 @@ func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request, params http
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
-	w.Write([]byte(strconv.Itoa(int(userID))))
+	hc.W.Write([]byte(strconv.Itoa(int(userID))))
 	return nil
 }
 
-func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request, params httprouter.Params) error {
-	id, err := strconv.Atoi(params.ByName("id"))
+func (h *handler) UpdateUser(hc *handlerContext.HandleContext) error {
+	id, err := strconv.Atoi(hc.P.ByName("id"))
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, "Invalid url param (id)", http.StatusBadRequest)
 	}
@@ -106,7 +122,7 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request, params http
 		Email:    userModel.Email,
 		Username: userModel.Username,
 	}
-	err = json.NewDecoder(r.Body).Decode(&UpdateUserDTO)
+	err = json.NewDecoder(hc.R.Body).Decode(&UpdateUserDTO)
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusBadRequest)
 	}
@@ -114,24 +130,24 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request, params http
 	if err != nil {
 		return apperror.NewHandlerError(err, http.StatusInternalServerError)
 	}
-	w.WriteHeader(http.StatusNoContent)
+	hc.W.WriteHeader(http.StatusNoContent)
 	return nil
 }
 
-func (h *handler) LoginUser(w http.ResponseWriter, r *http.Request, p httprouter.Params) error {
+func (h *handler) LoginUser(hc *handlerContext.HandleContext) error {
 	var LoginUserDTO user.LoginUserDTO
 
-	err := json.NewDecoder(r.Body).Decode(&LoginUserDTO)
+	err := json.NewDecoder(hc.R.Body).Decode(&LoginUserDTO)
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusBadRequest)
 	}
 
-	ua := useragent.Parse(r.Header.Get("User-Agent"))
+	ua := useragent.Parse(hc.R.Header.Get("User-Agent"))
 
 	token, err := h.service.Login(
 		context.Background(),
 		&LoginUserDTO,
-		&user.UserAgent{
+		&access.UserAgent{
 			Browser:        &ua.Name,
 			BrowserVersion: &ua.Version,
 			OS:             &ua.OS,
@@ -152,7 +168,7 @@ func (h *handler) LoginUser(w http.ResponseWriter, r *http.Request, p httprouter
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusBadRequest)
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(tokenBytes)
+	hc.W.WriteHeader(http.StatusOK)
+	hc.W.Write(tokenBytes)
 	return nil
 }

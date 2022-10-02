@@ -2,9 +2,10 @@ package api
 
 import (
 	"authstore/internal/config"
-	"authstore/internal/domain/user/delivery/http"
+	accessmysqlrepo "authstore/internal/domain/access/repository/mysql"
+	userhttp "authstore/internal/domain/user/delivery/http"
 	usermysqlrepo "authstore/internal/domain/user/repository/mysql"
-	"authstore/internal/domain/user/service"
+	userservice "authstore/internal/domain/user/service"
 	"authstore/internal/server"
 	"authstore/pkg/client/mysql"
 	"authstore/pkg/closer"
@@ -48,11 +49,12 @@ func Run() {
 		logger.Fatalf("mysql client error %v", err)
 	}
 
-	userHandler := http.NewHandler(
+	userHandler := userhttp.NewHandler(
 		logger,
-		service.NewService(
+		userservice.NewService(
 			logger,
 			usermysqlrepo.NewRepository(logger, client),
+			accessmysqlrepo.NewRepository(logger, client),
 		),
 	)
 	registerHandlers(router,

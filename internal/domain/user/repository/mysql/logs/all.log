@@ -1,0 +1,7 @@
+time="2022-09-18T00:56:07+03:00" level=info msg="FUCKING BOOLSHIT[45234]" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:69"
+time="2022-09-18T00:57:43+03:00" level=info msg="FUCKING BOOLSHIT[45234]" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:69"
+time="2022-09-18T00:57:43+03:00" level=info msg="FUCKING BOOLSHIT" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:89"
+time="2022-09-18T00:57:43+03:00" level=info msg="FUCKING BOOLSHIT[1231]" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:69"
+time="2022-09-18T00:57:43+03:00" level=info msg="FUCKING BOOLSHIT" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:89"
+time="2022-09-18T00:57:43+03:00" level=info msg="FUCKING BOOLSHIT[-231]" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:69"
+time="2022-09-18T00:57:43+03:00" level=info msg="FUCKING BOOLSHIT" func="authstore/internal/domain/user/repository/mysql.(*repository).fetch()" file="mysql.go:89"

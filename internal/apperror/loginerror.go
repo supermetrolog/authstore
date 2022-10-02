@@ -1,9 +1,15 @@
 package apperror
 
-import "errors"
-
-type LoginError error
+type LoginError struct {
+	Message string `json:"message"`
+}
 
 func NewLoginError(message string) LoginError {
-	return LoginError(errors.New(message))
+	return LoginError{
+		Message: message,
+	}
+}
+
+func (l LoginError) Error() string {
+	return l.Message
 }

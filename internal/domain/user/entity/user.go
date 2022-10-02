@@ -1,6 +1,9 @@
 package user
 
-import "authstore/pkg/validator"
+import (
+	access "authstore/internal/domain/access/entity"
+	"authstore/pkg/validator"
+)
 
 type UserID int64
 
@@ -14,12 +17,12 @@ const (
 )
 
 type User struct {
-	ID           *UserID   `json:"id" bson:"_id,omitempty" db:"id"`
-	Email        *string   `json:"email" bson:"email" db:"email"`
-	Username     *string   `json:"username" bson:"username" db:"username"`
-	PasswordHash *string   `json:"-" bson:"password_hash" db:"password_hash"`
-	RefreshToken *string   `json:"refresh_token" bson:"refresh_token" db:"refresh_token"`
-	Accesses     []*Access `json:"-"`
+	ID           *UserID          `json:"id" bson:"_id,omitempty" db:"id"`
+	Email        *string          `json:"email" bson:"email" db:"email"`
+	Username     *string          `json:"username" bson:"username" db:"username"`
+	PasswordHash *string          `json:"-" bson:"password_hash" db:"password_hash"`
+	RefreshToken *string          `json:"refresh_token" bson:"refresh_token" db:"refresh_token"`
+	Accesses     []*access.Access `json:"-"`
 }
 
 func (u *User) Validations() map[string][]validator.ValidatorHandler {

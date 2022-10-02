@@ -13,6 +13,7 @@ const (
 	ValidationErrorName = "Validation error"
 	HandlerErrorName    = "Handler error"
 	LoginErrorName      = "Login error"
+	AuthErrorName       = "Login error"
 )
 
 type HandlerError struct {

@@ -2,8 +2,11 @@ package middleware
 
 import (
 	"authstore/internal/apperror"
+	"authstore/internal/common/http/handler"
+	"authstore/internal/common/loggerinterface"
+	user "authstore/internal/domain/user/entity"
 	"authstore/pkg/httpheader"
-	"authstore/pkg/logging"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,56 +21,95 @@ type HandlerError interface {
 	OriginError() error
 }
 
-type Handle func(http.ResponseWriter, *http.Request, httprouter.Params) error
-
 type Middleware struct {
-	logger logging.Logger
+	logger loggerinterface.Logger
 }
 
-func NewMiddleware(logger logging.Logger) *Middleware {
+func NewMiddleware(logger loggerinterface.Logger) *Middleware {
 	return &Middleware{
 		logger: logger,
 	}
 }
 
-func (m *Middleware) DefaultMiddlewares(handle Handle) httprouter.Handle {
-	var result httprouter.Handle
-	result = m.ErrorHandlingMiddleware(handle)
-	result = m.ContentTypeJSONMiddleware(result)
+func (m *Middleware) DefaultMiddlewares(handle handler.Handle) handler.Handle {
+	var result handler.Handle
+	result = m.ErrorHandlingMiddleware(handle)   // ^
+	result = m.ContentTypeJSONMiddleware(result) // |
 	return result
 }
-func (m *Middleware) ContentTypeJSONMiddleware(next httprouter.Handle) httprouter.Handle {
+func (m *Middleware) AdapterMiddleware(next handler.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		w.Header().Add(
+		m.logger.Info("ADAPTER")
+		httpCtx := handler.NewHandleContext(w, r, p)
+		next(httpCtx)
+	}
+}
+
+type UserService interface {
+	FindByAccessToken(ctx context.Context, token string) (*user.User, error)
+}
+
+func (m *Middleware) AuthMiddleware(next handler.Handle, userService UserService) handler.Handle {
+	return func(httpCtx *handler.HandleContext) error {
+		m.logger.Info("AUTH")
+		token := httpCtx.R.Header.Get("Authorization")
+		m.logger.Info(token)
+		if token == "" {
+			err := apperror.NewAuthError("The request does not contain an authorization token")
+			return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusUnauthorized)
+		}
+		var (
+			username                  = "username"
+			id            user.UserID = 36
+			email                     = "fck@gmai.com"
+			password_hash             = "sdawdawd"
+		)
+		u := &user.User{
+			ID:           &id,
+			Email:        &email,
+			Username:     &username,
+			PasswordHash: &password_hash,
+		}
+		httpCtx.SetUser(u)
+		return next(httpCtx)
+	}
+
+}
+func (m *Middleware) ContentTypeJSONMiddleware(next handler.Handle) handler.Handle {
+	return func(httpCtx *handler.HandleContext) error {
+		m.logger.Info("Content")
+		httpCtx.W.Header().Add(
 			httpheader.ContentTypeKey,
 			httpheader.ContentTypeJSON,
 		)
-		next(w, r, p)
+		return next(httpCtx)
 	}
 
 }
 
-func (m *Middleware) ErrorHandlingMiddleware(next Handle) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		err := next(w, r, p)
+func (m *Middleware) ErrorHandlingMiddleware(next handler.Handle) handler.Handle {
+	return func(httpCtx *handler.HandleContext) error {
+		m.logger.Info("Error")
+		err := next(httpCtx)
 		if err == nil {
-			return
+			return nil
 		}
 
 		switch e := err.(type) {
 		case *apperror.HandlerError:
+			fmt.Println(e.StatusCode())
+			fmt.Println(e.Name)
+			fmt.Println(e.OriginalError.Error())
 			switch eo := e.OriginError().(type) {
 			case apperror.ValidationError:
 				fmt.Println(eo)
 				e.SetStatusCode(http.StatusBadRequest)
 				e.SetName(apperror.ValidationErrorName)
 			case apperror.LoginError:
-				fmt.Println(eo)
 				e.SetStatusCode(http.StatusUnauthorized)
 				e.SetName(apperror.LoginErrorName)
 			}
-
-			w.WriteHeader(e.StatusCode())
+			httpCtx.W.WriteHeader(e.StatusCode())
 
 			if e.StatusCode() == http.StatusInternalServerError {
 				m.logger.Errorf("Internal server error %v", err)
@@ -80,16 +122,16 @@ func (m *Middleware) ErrorHandlingMiddleware(next Handle) httprouter.Handle {
 
 			if jsonErr != nil {
 				m.logger.Errorf("error marshaling exited with error: %v", jsonErr)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Server error"))
-				return
+				httpCtx.W.WriteHeader(http.StatusInternalServerError)
+				httpCtx.W.Write([]byte("Server error"))
+				return jsonErr
 			}
 
-			w.Write(errBytes)
+			httpCtx.W.Write(errBytes)
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Unknown error"))
+			httpCtx.W.WriteHeader(http.StatusInternalServerError)
+			httpCtx.W.Write([]byte("Unknown error"))
 		}
-
+		return err
 	}
 }

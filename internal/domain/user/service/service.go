@@ -2,22 +2,36 @@ package service
 
 import (
 	"authstore/internal/apperror"
-	"authstore/internal/domain/user/entity/user"
-	"authstore/pkg/logging"
+	"authstore/internal/common/loggerinterface"
+	access "authstore/internal/domain/access/entity"
+	user "authstore/internal/domain/user/entity"
 	"authstore/pkg/security"
 	"authstore/pkg/validator"
 	"context"
 )
 
+type Repository interface {
+	FindById(context.Context, user.UserID) (*user.User, error)
+	FindByUsername(context.Context, string) (*user.User, error)
+	FindAll(context.Context) ([]*user.User, error)
+	Create(context.Context, *user.CreateUserDTO) (user.UserID, error)
+	Update(context.Context, *user.UpdateUserDTO) error
+}
+type AccessRepository interface {
+	Create(context.Context, *access.CreateAccessDTO) (access.AccessID, error)
+	FindByAccessToken(context.Context, string) (*access.Access, error)
+}
 type Service struct {
-	logger     *logging.Logger //fucking logger
-	repository user.Repository
+	logger           loggerinterface.Logger //fucking logger
+	repository       Repository
+	accessRepository AccessRepository
 }
 
-func NewService(logger *logging.Logger, repository user.Repository) *Service {
+func NewService(logger loggerinterface.Logger, repo Repository, accessRepo AccessRepository) *Service {
 	return &Service{
-		logger:     logger,
-		repository: repository,
+		logger:           logger,
+		repository:       repo,
+		accessRepository: accessRepo,
 	}
 }
 
@@ -73,8 +87,22 @@ func (s *Service) FindByUsername(ctx context.Context, username string) (*user.Us
 	}
 	return user, nil
 }
+func (s *Service) FindByAccessToken(ctx context.Context, token string) (*user.User, error) {
+	access, err := s.accessRepository.FindByAccessToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if access == nil {
+		return nil, nil
+	}
+	user, err := s.repository.FindById(ctx, user.UserID(*access.UserID))
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
 
-func (s *Service) Login(ctx context.Context, dto *user.LoginUserDTO, useragent *user.UserAgent) (*user.Token, error) {
+func (s *Service) Login(ctx context.Context, dto *user.LoginUserDTO, useragent *access.UserAgent) (*access.Token, error) {
 	errs := validator.New().Validate(dto)
 	if errs != nil {
 		return nil, apperror.NewValidationError(errs)
@@ -92,19 +120,20 @@ func (s *Service) Login(ctx context.Context, dto *user.LoginUserDTO, useragent *
 
 	token := security.GenerateRandomString(32)
 	var tokenExpire uint64 = 3400 * 24
-	Token := &user.Token{
+	Token := &access.Token{
 		Token:  &token,
 		Expire: &tokenExpire,
 	}
-	createAccessDTO := user.CreateAccessDTO{
-		UserID:    model.ID,
+	userId := int64(*model.ID)
+	createAccessDTO := access.CreateAccessDTO{
+		UserID:    &userId,
 		Token:     Token,
 		UserAgent: useragent,
 	}
 	if errs := validator.New().Validate(&createAccessDTO); err != nil {
 		return nil, apperror.NewValidationError(errs)
 	}
-	if _, err := s.repository.CreateAccess(ctx, &createAccessDTO); err != nil {
+	if _, err := s.accessRepository.Create(ctx, &createAccessDTO); err != nil {
 		return nil, err
 	}
 	return Token, nil

@@ -1,10 +1,8 @@
-package user
+package access
 
 import (
 	"authstore/pkg/validator"
 )
-
-type TokenID int64
 
 type Token struct {
 	Token  *string `json:"token"`
@@ -28,14 +26,14 @@ type AccessID int64
 
 type Access struct {
 	ID        *AccessID  `json:"id"`
-	UserID    *UserID    `json:"user_id"`
+	UserID    *int64     `json:"user_id"`
 	Token     *Token     `json:"token"`
 	UserAgent *UserAgent `json:"user_agent"`
 	CreatedAt *string    `json:"created_at"`
 }
 
 type CreateAccessDTO struct {
-	UserID    *UserID    `json:"user_id"`
+	UserID    *int64     `json:"user_id"`
 	Token     *Token     `json:"token"`
 	UserAgent *UserAgent `json:"user_agent"`
 }
