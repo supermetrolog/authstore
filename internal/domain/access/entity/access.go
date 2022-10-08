@@ -2,11 +2,12 @@ package access
 
 import (
 	"authstore/pkg/validator"
+	"strconv"
 )
 
 const (
-	StatusActive   = 1
-	StatusInactive = -1
+	StatusActive   int8 = 1
+	StatusInactive int8 = -1
 )
 
 type Token struct {
@@ -28,6 +29,10 @@ type UserAgent struct {
 	FullUserAgent  *string `json:"full_user_agent"`
 }
 type AccessID int64
+
+func (a AccessID) String() string {
+	return strconv.Itoa(int(a))
+}
 
 type Access struct {
 	ID        *AccessID  `json:"id"`

@@ -10,4 +10,12 @@ build:
 serve: 
 	./build/server.exe
 
+.PHONY: migrate-up
+migrate-up: 
+	goose -dir ./db/migrations mysql "root:@/auth?parseTime=true" up
+
+.PHONY: migrate-down
+migrate-down: 
+	goose -dir ./db/migrations mysql "root:@/auth?parseTime=true" down
+
 .DEFAULT_GOAL := build

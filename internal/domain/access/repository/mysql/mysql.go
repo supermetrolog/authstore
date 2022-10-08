@@ -5,6 +5,7 @@ import (
 	access "authstore/internal/domain/access/entity"
 	"context"
 	"database/sql"
+	"strings"
 )
 
 type repository struct {
@@ -128,7 +129,20 @@ func (r repository) FindByAccessToken(ctx context.Context, token string) (*acces
 	}
 	return nil, nil
 }
-
+func (r repository) FindByID(ctx context.Context, id access.AccessID) (*access.Access, error) {
+	sql := `SELECT
+		id, user_id, created_at, token, expire, browser, browser_version, os, os_version, device, is_mobile, is_tablet, is_desktop, is_bot, url, full_user_agent, status
+		FROM access
+		WHERE id = ? LIMIT 1`
+	accesses, err := r.fetch(ctx, sql, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(accesses) > 0 {
+		return accesses[0], nil
+	}
+	return nil, nil
+}
 func (r repository) Delete(ctx context.Context, id access.AccessID) error {
 	sql := `DELETE FROM access WHERE id = ?`
 
@@ -154,12 +168,39 @@ func (r repository) DisableAccess(ctx context.Context, id access.AccessID) error
 	_, err = stmt.ExecContext(ctx, access.StatusInactive, id)
 	return err
 }
+func (r repository) DisableAccesses(ctx context.Context, ids ...access.AccessID) error {
+	var accessIDsString []string
+	for _, id := range ids {
+		accessIDsString = append(accessIDsString, id.String())
+	}
+	sql := "UPDATE access SET status = ? WHERE id IN (?)"
 
+	stmt, err := r.client.PrepareContext(ctx, sql)
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, access.StatusInactive, strings.Join(accessIDsString, ","))
+	return err
+}
 func (r *repository) FindAll(ctx context.Context) ([]*access.Access, error) {
 	sql := `SELECT
 		id, user_id, created_at, token, expire, browser, browser_version, os, os_version, device, is_mobile, is_tablet, is_desktop, is_bot, url, full_user_agent, status
 		FROM access`
 	accesses, err := r.fetch(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+
+	return accesses, nil
+}
+
+func (r *repository) FindByUserID(ctx context.Context, userID int64) ([]*access.Access, error) {
+	sql := `SELECT
+		id, user_id, created_at, token, expire, browser, browser_version, os, os_version, device, is_mobile, is_tablet, is_desktop, is_bot, url, full_user_agent, status
+		FROM access WHERE user_id = ?`
+	accesses, err := r.fetch(ctx, sql, userID)
 	if err != nil {
 		return nil, err
 	}
