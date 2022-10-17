@@ -19,3 +19,6 @@ migrate-down:
 	goose -dir ./db/migrations mysql "root:@/auth?parseTime=true" down
 
 .DEFAULT_GOAL := build
+
+# create goose migration in directory example
+# goose -dir ./db/migrations create add_name_column_in_tree_table sql

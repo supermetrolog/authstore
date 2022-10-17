@@ -25,7 +25,7 @@ func Required(field any) ValidatorHandler {
 func MinLength(field *string, min uint) ValidatorHandler {
 	return func(fieldname string) error {
 		if field == nil || uint(len(*field)) < min {
-			return fmt.Errorf("Value of field (%s) cannot be less than %d", fieldname, min)
+			return fmt.Errorf("Length of field (%s) cannot be less than %d", fieldname, min)
 		}
 		return nil
 	}
@@ -34,6 +34,22 @@ func MinLength(field *string, min uint) ValidatorHandler {
 func MaxLength(field *string, max uint) ValidatorHandler {
 	return func(fieldname string) error {
 		if field != nil && uint(len(*field)) > max {
+			return fmt.Errorf("Length of field (%s) cannot be more than %d", fieldname, max)
+		}
+		return nil
+	}
+}
+func MinValue(field *int, min int) ValidatorHandler {
+	return func(fieldname string) error {
+		if field == nil || *field < min {
+			return fmt.Errorf("Value of field (%s) cannot be less than %d", fieldname, min)
+		}
+		return nil
+	}
+}
+func MaxValue(field *int, max int) ValidatorHandler {
+	return func(fieldname string) error {
+		if field == nil || *field > max {
 			return fmt.Errorf("Value of field (%s) cannot be more than %d", fieldname, max)
 		}
 		return nil

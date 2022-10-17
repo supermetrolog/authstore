@@ -103,6 +103,7 @@ func (h *handler) CreateUser(hc *handlerContext.HandleContext) error {
 	if err != nil {
 		return apperror.NewHandlerErrorWithMessage(err, err.Error(), http.StatusInternalServerError)
 	}
+	hc.W.WriteHeader(http.StatusOK)
 	hc.W.Write([]byte(strconv.Itoa(int(userID))))
 	return nil
 }

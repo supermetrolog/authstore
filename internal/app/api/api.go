@@ -5,6 +5,9 @@ import (
 	accesshttp "authstore/internal/domain/access/delivery/http"
 	accessmysqlrepo "authstore/internal/domain/access/repository/mysql"
 	accessService "authstore/internal/domain/access/service"
+	treehttp "authstore/internal/domain/tree/delivery/http"
+	treemysqlrepo "authstore/internal/domain/tree/repository/mysql"
+	treeService "authstore/internal/domain/tree/service"
 	userhttp "authstore/internal/domain/user/delivery/http"
 	usermysqlrepo "authstore/internal/domain/user/repository/mysql"
 	userservice "authstore/internal/domain/user/service"
@@ -68,10 +71,18 @@ func Run() {
 		),
 		userService,
 	)
-
+	treeHandler := treehttp.NewHandler(
+		logger,
+		treeService.NewService(
+			logger,
+			treemysqlrepo.NewRepository(logger, client),
+		),
+		userService,
+	)
 	registerHandlers(router,
 		userHandler,
 		accessHandler,
+		treeHandler,
 	)
 
 	logger.Info("run server")

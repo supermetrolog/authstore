@@ -18,7 +18,7 @@ import (
 const (
 	accessesURL            = "/accesses"
 	accessURL              = "/access/:id"
-	userAccessesDisableURL = "/access/disable-user/:user_id"
+	userAccessesDisableURL = "/accesses/disable-user/:user_id"
 )
 
 type Service interface {
