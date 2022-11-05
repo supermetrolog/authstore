@@ -44,9 +44,9 @@ func (r *repository) fetch(ctx context.Context, query string, args ...any) ([]*t
 	return nodes, nil
 }
 func (r *repository) FindTreeByUserID(ctx context.Context, userID user.UserID) (*tree.Node, error) {
-	sql := "SELECT id, parent_id, user_id, name, type, status, created_at, updated_at FROM tree"
+	sql := "SELECT id, parent_id, user_id, name, type, status, created_at, updated_at FROM tree WHERE user_id = ?"
 
-	nodes, err := r.fetch(ctx, sql)
+	nodes, err := r.fetch(ctx, sql, userID)
 
 	if err != nil {
 		return nil, err
@@ -55,6 +55,68 @@ func (r *repository) FindTreeByUserID(ctx context.Context, userID user.UserID) (
 		return nodes[0], nil
 	}
 	return nil, nil
+}
+func (r *repository) FindNodeByID(ctx context.Context, nodeID tree.NodeID) (*tree.Node, error) {
+	sql := "SELECT id, parent_id, user_id, name, type, status, created_at, updated_at FROM tree WHERE id = ?"
+
+	nodes, err := r.fetch(ctx, sql, nodeID)
+
+	if err != nil {
+		return nil, err
+	}
+	if len(nodes) != 0 {
+		return nodes[0], nil
+	}
+	return nil, nil
+}
+
+func (r *repository) FindNodeByName(ctx context.Context, name string) (*tree.Node, error) {
+	sql := "SELECT id, parent_id, user_id, name, type, status, created_at, updated_at FROM tree WHERE name = ?"
+
+	nodes, err := r.fetch(ctx, sql, name)
+
+	if err != nil {
+		return nil, err
+	}
+	if len(nodes) != 0 {
+		return nodes[0], nil
+	}
+	return nil, nil
+}
+
+func (r *repository) FindRootByUserID(ctx context.Context, userID user.UserID) (*tree.Node, error) {
+	sql := "SELECT id, parent_id, user_id, name, type, status, created_at, updated_at FROM tree WHERE user_id = ? AND parent_id IS NULL"
+
+	nodes, err := r.fetch(ctx, sql, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	if len(nodes) == 0 {
+		return nil, nil
+	}
+	return r.findRecursive(ctx, nodes[0])
+}
+
+func (r *repository) findRecursive(ctx context.Context, node *tree.Node) (*tree.Node, error) {
+	sql := "SELECT id, parent_id, user_id, name, type, status, created_at, updated_at FROM tree WHERE parent_id = ?"
+
+	nodes, err := r.fetch(ctx, sql, node.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	node.Childrens = nodes
+
+	for _, n := range node.Childrens {
+		_, err := r.findRecursive(ctx, n)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return node, nil
 }
 
 func (r *repository) CreateNode(ctx context.Context, node *tree.CreateNodeDTO) (tree.NodeID, error) {

@@ -13,16 +13,16 @@ const (
 type NodeID int
 
 type Node struct {
-	ID        *NodeID
-	ParentID  *NodeID
-	UserID    *int
-	Name      *string
-	CreatedAt *string
-	UpdatedAt *string
-	Type      *int
-	Status    *int
-	Childrens []*Node
-	Parent    *Node
+	ID        *NodeID `json:"id"`
+	ParentID  *NodeID `json:"parent_id"`
+	UserID    *int    `json:"user_id"`
+	Name      *string `json:"name"`
+	CreatedAt *string `json:"created_at"`
+	UpdatedAt *string `json:"updated_at"`
+	Type      *int    `json:"type"`
+	Status    *int    `json:"status"`
+	Childrens []*Node `json:"childrens"`
+	Parent    *Node   `json:"parent"`
 }
 
 func (n Node) IsNode() bool {
