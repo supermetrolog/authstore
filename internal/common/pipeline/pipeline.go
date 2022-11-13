@@ -4,9 +4,6 @@ import (
 	"authstore/internal/common/http/handler"
 	"authstore/internal/common/loggerinterface"
 	"errors"
-	"net/http"
-
-	"github.com/julienschmidt/httprouter"
 )
 
 type Handle interface {
@@ -14,10 +11,9 @@ type Handle interface {
 }
 
 type Pipeline struct {
-	logger        loggerinterface.Logger
-	Handlers      queue
-	HandleContext *handler.HandleContext
-	nextDefault   Handle
+	logger      loggerinterface.Logger
+	Handlers    queue
+	nextDefault Handle
 }
 type handleWrapper struct {
 	pipeline *Pipeline
@@ -26,11 +22,9 @@ type handleWrapper struct {
 func (f handleWrapper) Handle(hctx *handler.HandleContext, next Handle) error {
 	return f.pipeline.Next(hctx, next)
 }
-func NewPipline(logger loggerinterface.Logger, w http.ResponseWriter, r *http.Request, p httprouter.Params) *Pipeline {
-	hctx := handler.NewHandleContext(w, r, p)
+func NewPipline(logger loggerinterface.Logger) *Pipeline {
 	return &Pipeline{
-		logger:        logger,
-		HandleContext: hctx,
+		logger: logger,
 	}
 }
 
